@@ -57,6 +57,18 @@ $$
 
 This formula calculates the distance between the point and the line in the y-direction (not the perpendicular distance). 
 
+Another popular method to calculate the distance is called the Z-score method. The Z-score is calculated by dividing the distance by the standard deviation of the distance. The Z-score is implemented in the MQL5 EA (not in the python code).
+The formula for Z-score is given by:
+
+$$
+\text{Z-score} = \frac{\text{spread} - \mu_{\text{spread}}}{\sigma_{\text{spread}}}
+$$
+
+Where:
+- $\text{spread} = \text{close}_1 - \text{close}_2$; difference between the close prices of the two assets
+- $\mu_{\text{spread}}$ is the mean of the spread over a lookback period.
+- $\sigma_{\text{spread}}$ is the standard deviation of the spread over a lookback period.
+
 The distance (`data['distance']`) is then used to identify the arbitrage opportunities. When distance is greater than a certain threshold, it is considered as an arbitrage opportunity.
 
 Also, zero-crossing rate can be calculated for the distance line.
