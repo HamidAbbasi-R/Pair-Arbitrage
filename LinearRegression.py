@@ -112,7 +112,7 @@ def find_special_points(
 
 #%% CONSTANTS
 symbol = ['EURUSD', 'GBPUSD']
-timeframe = "H1"
+timeframe = "D1"
 endTime = datetime(        # in LONDON time
     year = 2024, 
     month = 10, 
@@ -121,10 +121,10 @@ endTime = datetime(        # in LONDON time
     minute = 0,
     second = 0,
 )
-Nbars = 50
+Nbars = 1000
 LoopbackBars = 20
 
-regressionThreshold = 0.0002
+regressionThreshold = 0.005
 distanceThreshold = 0.9
 
 fitReturns = True       # if True, the linear regression is calculated on the closing prices, otherwise on the returns
@@ -349,14 +349,15 @@ if figCandles:
     # highlight the area between y=0.001 and y=-0.001
     figCandles.add_shape(
         type = 'rect',
-        x0 = data['time'][LoopbackBars:].iloc[0],
-        x1 = data['time'][LoopbackBars:].iloc[-1],
+        x0 = data['time'][LoopbackBars+1:].iloc[0],
+        x1 = data['time'][LoopbackBars+1:].iloc[-1],
         y0 = regressionThreshold,
         y1 = -regressionThreshold,
         # color blue
         fillcolor = 'rgba(0, 0, 255, 0.3)',
         line = dict(width=0),
         layer = 'below',
+        name = 'Threshold Area',
         row=3, col=1
     )
 
@@ -365,14 +366,14 @@ if figCandles:
         y = distances[indicesWin],
         mode = 'markers',
         marker = dict(size=5, color='green'),
-        name = 'Win Points',
+        name = 'Arbitrage Points (positive)',
     ), row=3, col=1)
     figCandles.add_trace(go.Scatter(
         x = data['time'][LoopbackBars+1:].iloc[indicesLoss],
         y = distances[indicesLoss],
         mode = 'markers',
         marker = dict(size=5, color='red'),
-        name = 'Loss Points',
+        name = 'Arbitrage Points (negative)',
     ), row=3, col=1)
 
 
@@ -380,6 +381,12 @@ if figCandles:
     figCandles.update_xaxes(
         rangeslider_visible=False,
         matches='x',
+        title_text="Time",
+        row=3, col=1
         )
+    figCandles.update_yaxes(
+        title_text="Distance",
+        row=3, col=1
+    )
     # figCandles.show()
     figCandles.write_html('candles.html', auto_open=True)
