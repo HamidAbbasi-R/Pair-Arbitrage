@@ -42,15 +42,19 @@ distances = -(a * x - y + b) / np.sqrt(a**2 + 1)
 data['distance'][LoopbackBars+1:] = distances[LoopbackBars+1:]
 ```
 The code that calculates the perpendiculr distance might seem a bit confusing. The formula to find the perpendicular distance of a point `(x0, y0)` from a line `y = ax + b` is given by:
+
 $$
 \text{distance} = -\frac{ax_0 - y_0 + b}{\sqrt{a^2 + 1}}
 $$
+
 Then the sign of the distance is calculated by checking if the point is above or below the line. 
 
 A simpler approach would be to calculate the distance between the point `(x0, y0)` and the line `y = ax + b` using the formula:
+
 $$
 \text{distance} = y_0 - (ax_0 + b)
 $$
+
 This formula calculates the distance between the point and the line in the y-direction (not the perpendicular distance). 
 
 The distance (`data['distance']`) is then used to identify the arbitrage opportunities. When distance is greater than a certain threshold, it is considered as an arbitrage opportunity.
