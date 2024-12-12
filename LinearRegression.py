@@ -21,6 +21,10 @@ def find_special_points(
         forwardCounts=5,
         ):
     """
+    Find the data points where there is a significant deviation from the regression line. 
+    Then find out if the next data point is closer to zero or crosses the zero line or move further away
+    from the regression line.
+
     Find data points that meet the specified conditions:
     1. Data point is outside the threshold range.
     2. The next data point is closer to zero or crosses the zero line.
@@ -34,6 +38,8 @@ def find_special_points(
     """
     winPoints = []
     lossPoints = []
+    winTrades = 0
+    lossTrades = 0
     inTrade = [False] * len(distances)
 
     def compare(next_dist, factor, mode):
@@ -75,12 +81,34 @@ def find_special_points(
             if condTP:
                 winPoints.append((i, distances[i], distances[i + 1]))  # (index, current value, next value)
                 inTrade[i:i + i_TP + 1] = [True] * (i_TP + 1)
+
+                if distances[i] > 0:
+                    # buy the first asset and sell the second asset
+                    if data['close_0'].iloc[i+1] > data['close_0'].iloc[i]:
+                        winTrades += 1
+                    else:
+                        lossTrades += 1 
+                    if data['close_1'].iloc[i+1] < data['close_1'].iloc[i]:
+                        winTrades += 1
+                    else:
+                        lossTrades += 1
+                
+                if distances[i] < 0:
+                    # sell the first asset and buy the second asset
+                    if data['close_0'].iloc[i+1] < data['close_0'].iloc[i]:
+                        winTrades += 1
+                    else:
+                        lossTrades += 1 
+                    if data['close_1'].iloc[i+1] > data['close_1'].iloc[i]:
+                        winTrades += 1
+                    else:
+                        lossTrades += 1
+
             elif condSL:
                 lossPoints.append((i, distances[i], distances[i + 1]))
                 inTrade[i:i + i_SL + 1] = [True] * (i_SL + 1)
 
-    
-    return winPoints, lossPoints
+    return winPoints, lossPoints, winTrades, lossTrades
 
 #%% CONSTANTS
 symbol = ['EURUSD', 'GBPUSD']
@@ -94,7 +122,7 @@ endTime = datetime(        # in LONDON time
     second = 0,
 )
 Nbars = 50
-LoopbackBars = 5
+LoopbackBars = 20
 
 regressionThreshold = 0.0002
 distanceThreshold = 0.9
@@ -151,32 +179,17 @@ data = data.dropna()
 
 
 # calculate the distances of the data points from the regression line
-data['x_int'] = np.zeros_like(data['log_return_0']) * np.nan
-data['y_int'] = np.zeros_like(data['log_return_0']) * np.nan
 data['distance'] = np.zeros_like(data['log_return_0']) * np.nan
-i=LoopbackBars+1
-for x,y,s,incpt in zip(data['log_return_0'], data['log_return_1'], data['slope'], data['intercept']):
-    m = -1 / s
-    data['x_int'][i] = (incpt + m * x - y) / (m - s)
-    data['y_int'][i] = (s*(incpt + m * x - y) + incpt*(m - s)) / (m - s)
-    data['distance'][i] = np.sqrt((x - data['x_int'][i])**2 + (y - data['y_int'][i])**2)
-    data['distance'][i] = data['distance'][i] if y > s * x + incpt else -data['distance'][i]
-    i+=1
+# Calculate the distances of the data points from the regression line without using a loop
+x = data['log_return_0']
+y = data['log_return_1']
+a = data['slope']
+b = data['intercept']
 
+distances = -(a * x - y + b) / np.sqrt(a**2 + 1)
+# distances = np.where(y > a * x + b, distances, -distances)
 
-# Calculate the intersection points and distances without using a for loop
-# m = -1 / data['slope']
-# x_int = (data['intercept'] + m * data['log_return_0'] - data['log_return_1']) / (m - data['slope'])
-# y_int = (data['slope'] * (data['intercept'] + m * data['log_return_0'] - data['log_return_1']) + data['intercept'] * (m - data['slope'])) / (m - data['slope'])
-# distance = np.sqrt((data['log_return_0'] - x_int)**2 + (data['log_return_1'] - y_int)**2)
-# distance = np.where(data['log_return_1'] > data['slope'] * data['log_return_0'] + data['intercept'], distance, -distance)
-
-# data['x_int'] = x_int
-# data['y_int'] = y_int
-# data['distance'] = distance
-
-# add zero the the start of the distances
-# distances = np.insert(distances, 0, 0)
+data['distance'][LoopbackBars+1:] = distances[LoopbackBars+1:]
 
 # if distance is positive, then the first asset is undervalued (or the second is overvalued), which means:
 # Buy the first asset and sell the second asset
@@ -193,75 +206,75 @@ zcr = zero_crossings / (sum(~np.isnan(data['distance'])) - 1)  # Normalized by t
 print(f"Zero-crossing rate: {zcr:.1%}")
 
 #%% PLOTTING THE RESULTS
-if figRegression:
-    fig = go.Figure()
+# if figRegression:
+#     fig = go.Figure()
 
-    # plot the data points
-    fig.add_trace(go.Scatter
-    (
-        x = data['log_return_0'],
-        y = data['log_return_1'],
-        mode = 'markers',
-        # size of the markers
-        marker = dict(size=3),
-        # line color
-        # line = dict(color='black', width=0.5),
-        # color of the markers change according to their order of appearance
-        marker_color = np.arange(len(data['log_return_0'])),
-        name = 'Data Points',
-    ))
+#     # plot the data points
+#     fig.add_trace(go.Scatter
+#     (
+#         x = data['log_return_0'],
+#         y = data['log_return_1'],
+#         mode = 'markers',
+#         # size of the markers
+#         marker = dict(size=3),
+#         # line color
+#         # line = dict(color='black', width=0.5),
+#         # color of the markers change according to their order of appearance
+#         marker_color = np.arange(len(data['log_return_0'])),
+#         name = 'Data Points',
+#     ))
 
-    # plot the regression line
-    # fig.add_trace(go.Scatter
-    # (
-    #     x = data[0][LoopbackBars:],
-    #     y = np.mean(slope) * data[0][LoopbackBars:] + np.mean(intercept),
-    #     mode = 'lines',
-    #     line = dict(color='black'),
-    #     name = 'Regression Line',
-    # ))
+#     # plot the regression line
+#     # fig.add_trace(go.Scatter
+#     # (
+#     #     x = data[0][LoopbackBars:],
+#     #     y = np.mean(slope) * data[0][LoopbackBars:] + np.mean(intercept),
+#     #     mode = 'lines',
+#     #     line = dict(color='black'),
+#     #     name = 'Regression Line',
+#     # ))
 
-    # add the equation of the regression line
-    fig.add_annotation(
-        x = 0.05,
-        y = 0.95,
-        xref = 'paper',
-        yref = 'paper',
-        text = f"y = {np.mean(slope):.2f}x + {np.mean(intercept):.2f}, R2 = {np.mean(r2):.1%}",
-        showarrow = False,
-    )
+#     # add the equation of the regression line
+#     fig.add_annotation(
+#         x = 0.05,
+#         y = 0.95,
+#         xref = 'paper',
+#         yref = 'paper',
+#         text = f"y = {np.mean(slope):.2f}x + {np.mean(intercept):.2f}, R2 = {np.mean(r2):.1%}",
+#         showarrow = False,
+#     )
 
-    # plot the lines connecting the data points perpendicular to the regression line
-    if showDistancesOnCorrelationPlot:
-        i=0
-        for x,y in zip(data[0][LoopbackBars:], data[1][LoopbackBars:]):
-            fig.add_trace(go.Scatter(
-                x = [x, x_int[i]],
-                y = [y, y_int[i]],
-                mode = 'lines',
-                line = dict(color='black', width=0.5),
-                showlegend = False,
-            ))
-            i+=1
+#     # plot the lines connecting the data points perpendicular to the regression line
+#     if showDistancesOnCorrelationPlot:
+#         i=0
+#         for x,y in zip(data[0][LoopbackBars:], data[1][LoopbackBars:]):
+#             fig.add_trace(go.Scatter(
+#                 x = [x, x_int[i]],
+#                 y = [y, y_int[i]],
+#                 mode = 'lines',
+#                 line = dict(color='black', width=0.5),
+#                 showlegend = False,
+#             ))
+#             i+=1
 
 
-    # update the layout
-    fig.update_layout(
-        title = 'Linear Regression',
-        xaxis_title = symbol[0],
-        yaxis_title = symbol[1],
-        # remove hovermode
-        hovermode = False,
-        # xaxis=dict(scaleanchor='y', scaleratio=1)
-    )
+#     # update the layout
+#     fig.update_layout(
+#         title = 'Linear Regression',
+#         xaxis_title = symbol[0],
+#         yaxis_title = symbol[1],
+#         # remove hovermode
+#         hovermode = False,
+#         # xaxis=dict(scaleanchor='y', scaleratio=1)
+#     )
 
-    # fig.show()
-    fig.write_html('regression.html', auto_open=True)
+#     # fig.show()
+#     fig.write_html('regression.html', auto_open=True)
 
 if figCandles:
     distances = np.array(data['distance'][LoopbackBars+1:])
     # if distances outside the threshold area and the next distances is closer to zero than the previous one, then mark the point
-    winPoints, lossPoints = find_special_points(distances, regressionThreshold, distanceThreshold)
+    winPoints, lossPoints, winTrades, lossTrades = find_special_points(distances, regressionThreshold, distanceThreshold)
     winPoints = np.array(winPoints)
     lossPoints = np.array(lossPoints)
 
@@ -281,8 +294,8 @@ if figCandles:
     
     # add win and loss points
     figCandles.add_trace(go.Scatter(
-        x = data['time'][LoopbackBars:].iloc[indicesWinPos],
-        y = data['low_0'][LoopbackBars:].iloc[indicesWinPos],
+        x = data['time'][LoopbackBars+1:].iloc[indicesWinPos],
+        y = data['low_0'][LoopbackBars+1:].iloc[indicesWinPos],
         mode = 'markers',
         # show upward arrows
         marker = dict(size=10, color='green', symbol='triangle-up'),
@@ -290,24 +303,24 @@ if figCandles:
         showlegend=False,
     ), row=1, col=1)
     figCandles.add_trace(go.Scatter(
-        x = data['time'][LoopbackBars:].iloc[indicesWinNeg],
-        y = data['high_0'][LoopbackBars:].iloc[indicesWinNeg],
+        x = data['time'][LoopbackBars+1:].iloc[indicesWinNeg],
+        y = data['high_0'][LoopbackBars+1:].iloc[indicesWinNeg],
         mode = 'markers',
         marker = dict(size=10, color='red', symbol='triangle-down'),
         name = 'Sell Points',
         showlegend=False,
     ), row=1, col=1)
     figCandles.add_trace(go.Scatter(
-        x = data['time'][LoopbackBars:].iloc[indicesWinPos],
-        y = data['high_1'][LoopbackBars:].iloc[indicesWinPos],
+        x = data['time'][LoopbackBars+1:].iloc[indicesWinPos],
+        y = data['high_1'][LoopbackBars+1:].iloc[indicesWinPos],
         mode = 'markers',
         marker = dict(size=10, color='red', symbol='triangle-down'),
         name = 'Sell Points',
         showlegend=False,
     ), row=2, col=1)
     figCandles.add_trace(go.Scatter(
-        x = data['time'][LoopbackBars:].iloc[indicesWinNeg],
-        y = data['low_1'][LoopbackBars:].iloc[indicesWinNeg],
+        x = data['time'][LoopbackBars+1:].iloc[indicesWinNeg],
+        y = data['low_1'][LoopbackBars+1:].iloc[indicesWinNeg],
         mode = 'markers',
         marker = dict(size=10, color='green', symbol='triangle-up'),
         name = 'Buy Points',
@@ -316,7 +329,7 @@ if figCandles:
 
     # Distance plot
     figCandles.add_trace(go.Scatter(
-        x = data['time'][LoopbackBars:],
+        x = data['time'][LoopbackBars+1:],
         y = distances,
         mode = 'lines',
         name = 'Distances',
@@ -348,14 +361,14 @@ if figCandles:
     )
 
     figCandles.add_trace(go.Scatter(
-        x = data['time'][LoopbackBars:].iloc[indicesWin],
+        x = data['time'][LoopbackBars+1:].iloc[indicesWin],
         y = distances[indicesWin],
         mode = 'markers',
         marker = dict(size=5, color='green'),
         name = 'Win Points',
     ), row=3, col=1)
     figCandles.add_trace(go.Scatter(
-        x = data['time'][LoopbackBars:].iloc[indicesLoss],
+        x = data['time'][LoopbackBars+1:].iloc[indicesLoss],
         y = distances[indicesLoss],
         mode = 'markers',
         marker = dict(size=5, color='red'),
@@ -370,4 +383,3 @@ if figCandles:
         )
     # figCandles.show()
     figCandles.write_html('candles.html', auto_open=True)
-
