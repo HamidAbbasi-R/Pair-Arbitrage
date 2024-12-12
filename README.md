@@ -69,6 +69,8 @@ Where:
 - $\mu_{\text{spread}}$ is the mean of the spread over a lookback period.
 - $\sigma_{\text{spread}}$ is the standard deviation of the spread over a lookback period.
 
+The Z-score indicator is written in MQL5.
+
 The distance (`data['distance']`) is then used to identify the arbitrage opportunities. When distance is greater than a certain threshold, it is considered as an arbitrage opportunity.
 
 Also, zero-crossing rate can be calculated for the distance line.
