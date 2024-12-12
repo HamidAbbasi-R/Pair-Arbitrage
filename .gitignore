@@ -1,0 +1,4 @@
+# ignore html files
+*.html
+# ignore _pycache_ directory
+__pycache__/
