@@ -1,5 +1,5 @@
 # Statistical Pair-Arbitrage Project
-![a](docs/Pair_Arbitrage.png)
+![a](docs/pair_arbitrage.png)
 This project uses statistical methods to identify arbitrage opportunities in a pair of assets that are expected to behave in a similar manner. For instance EURUSD and GBPUSD are expected to have a high correlation and thus a pair of assets that can be used to identify arbitrage opportunities. The project uses the following steps to identify arbitrage opportunities:
 1. Data Collection - Collect historical data for the pair of assets for a given time period using MT5 API or yfinance API.
 2. Preprocessing Data - Preprocess the data and create a dataframe with all the necessary columns.
